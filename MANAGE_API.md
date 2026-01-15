@@ -231,9 +231,7 @@ GET /v1/manage/employee/10/salary/2026/1
         "leave_deduction": 500,
         "absence_deduction": 0,
         "others": 200,
-        "bonus": 1000,
-        "total_work_hours": 160,
-        "total_ot_hours": 10
+        "bonus": 1000
     }
 }
 ```
@@ -253,8 +251,6 @@ GET /v1/manage/employee/10/salary/2026/1
 | absence_deduction | decimal | 曠職扣款 |
 | others | integer | 其他費用（扣款） |
 | bonus | integer | 獎金 |
-| total_work_hours | integer | 總工作時數 |
-| total_ot_hours | integer | 總加班時數 |
 
 ### Error Responses
 
@@ -313,11 +309,6 @@ Content-Type: application/json
 | total_ot_pay | integer | 條件必填* | 加班費（必須大於原有值） |
 | pf_attendance | integer | 條件必填* | 全勤獎金（必須大於原有值） |
 | bonus | integer | 條件必填* | 獎金（必須大於原有值） |
-| health_in | integer | 否 | 健保費 |
-| labor_in | integer | 否 | 勞保費 |
-| leave_deduction | decimal | 否 | 請假扣款 |
-| absence_deduction | decimal | 否 | 曠職扣款 |
-| others | integer | 否 | 其他費用 |
 
 **條件必填說明**：至少需要提供 total_pay、total_ot_pay、pf_attendance、bonus 其中一個欄位
 
@@ -327,11 +318,7 @@ Content-Type: application/json
     "year": 2026,
     "month": 1,
     "total_pay": 42000,
-    "bonus": 2000,
-    "health_in": 1200,
-    "labor_in": 900,
-    "leave_deduction": 500,
-    "absence_deduction": 0
+    "bonus": 2000
 }
 ```
 
@@ -346,11 +333,7 @@ Content-Type: application/json
         "total_ot_pay": 5000,
         "total_sum_pay": 49000,
         "pf_attendance": 2000,
-        "bonus": 2000,
-        "health_in": 1200,
-        "labor_in": 900,
-        "leave_deduction": 500,
-        "absence_deduction": 0
+        "bonus": 2000
     }
 }
 ```
@@ -612,3 +595,15 @@ GET /v1/manage/employees/tasks/info/2026/1
     }
 }
 ```
+
+### 回應說明
+- 數據按日期（YYYY-MM-DD）分組
+- 每個日期下包含該日所有員工的任務列表
+- 每個任務會自動添加 `user_name` 欄位顯示員工姓名
+
+### 說明
+- 查詢當前管理者所有員工的任務
+- 按日期分組便於查看每日排班狀況
+- 需要管理者認證 token
+
+---
