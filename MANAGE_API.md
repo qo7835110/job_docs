@@ -607,3 +607,147 @@ GET /v1/manage/employees/tasks/info/2026/1
 - 需要管理者認證 token
 
 ---
+
+## 獲取員工月度假期使用狀況 (Get Monthly Leave Usage)
+
+### Endpoint
+```
+GET /leave/usage/{year}/{month}
+```
+
+### 描述
+獲取指定員工在特定年月的各假別使用狀況，包含已使用時數、已使用天數、剩餘天數等資訊。根據不同假別的更新週期（年度、月度、一次性）計算使用量，並自動考慮特定假別的資格限制（如特休假需為正職、生理假限女性）。
+
+### Authentication
+需要管理者認證（Bearer Token）
+
+### Headers
+```
+Authorization: Bearer {access_token}
+Content-Type: application/json
+```
+
+### Path Parameters
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| year | integer | 是 | 查詢年份（如 2026） |
+| month | integer | 是 | 查詢月份（1-12） |
+
+### Request Parameters
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| employee_id | integer | 是 | 員工 ID，必須存在於 users 表中 |
+
+### Request Example
+```bash
+GET /v1/manage/leave/usage/2026/1?employee_id=456
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...
+```
+
+### Success Response (200 OK)
+```json
+{
+    "msg": "success",
+    "res": {
+        "year": 2026,
+        "month": 1,
+        "stats": [
+            {
+                "leave_type_id": 1,
+                "leave_type_name": "特別休假",
+                "refresh_cycle": "yearly",
+                "limit_days": 14,
+                "used_hours": 24,
+                "used_days": 3.0,
+                "remaining_days": 11.0
+            },
+            {
+                "leave_type_id": 2,
+                "leave_type_name": "病假",
+                "refresh_cycle": "yearly",
+                "limit_days": 30,
+                "used_hours": 16,
+                "used_days": 2.0,
+                "remaining_days": 28.0
+            },
+            {
+                "leave_type_id": 3,
+                "leave_type_name": "事假",
+                "refresh_cycle": "yearly",
+                "limit_days": 14,
+                "used_hours": 0,
+                "used_days": 0,
+                "remaining_days": 14.0
+            },
+            {
+                "leave_type_id": 4,
+                "leave_type_name": "生理假",
+                "refresh_cycle": "monthly",
+                "limit_days": 1,
+                "used_hours": 8,
+                "used_days": 1.0,
+                "remaining_days": 0
+            },
+            {
+                "leave_type_id": 5,
+                "leave_type_name": "婚假",
+                "refresh_cycle": "once",
+                "limit_days": 8,
+                "used_hours": 0,
+                "used_days": 0,
+                "remaining_days": 8.0
+            }
+        ]
+    }
+}
+```
+
+### Response Fields Description
+
+#### 主要回應欄位
+| 欄位 | 類型 | 描述 |
+|------|------|------|
+| year | integer | 查詢的年份 |
+| month | integer | 查詢的月份 |
+| stats | array | 各假別使用統計陣列 |
+
+#### stats 陣列中的物件欄位
+| 欄位 | 類型 | 描述 |
+|------|------|------|
+| leave_type_id | integer | 假別 ID |
+| leave_type_name | string | 假別名稱 |
+| refresh_cycle | string | 更新週期：yearly（年度）、monthly（月度）、once（一次性） |
+| limit_days | integer | 該假別的總天數額度 |
+| used_hours | integer | 已使用的總時數 |
+| used_days | float | 已使用的總天數（小時 ÷ 8，保留 1 位小數） |
+| remaining_days | float | 剩餘可用天數（limit_days - used_days，最小為 0） |
+
+### Error Responses
+
+#### 422 Unprocessable Entity - 驗證錯誤
+```json
+{
+    "msg": "validation error",
+    "res": {
+        "employee_id": [
+            "The employee id field is required."
+        ]
+    }
+}
+```
+
+**常見驗證錯誤**：
+- `employee_id` 必填
+- `employee_id` 必須是整數
+- `employee_id` 必須存在於 users 表中
+
+```json
+{
+    "msg": "validation error",
+    "res": {
+        "employee_id": [
+            "The selected employee id is invalid."
+        ]
+    }
+}
+```
