@@ -146,3 +146,137 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...
 3. **權限限制**：只有任務的執行者（員工）可以確認，雇主無法代為確認
 4. **時間記錄**：系統自動記錄確認時間，用於審計追蹤
 
+### Related Endpoints
+- `POST /v1/task/checkout` - 執行結算（雇主操作）
+- `GET /v1/task/{id}` - 查看任務詳情
+- `GET /v1/task/{id}/checkout/preview` - 預覽結算結果
+
+### Example Use Case
+
+**場景**：員工確認雇主已支付薪資
+
+1. 雇主執行結算：`POST /v1/task/checkout`
+2. 員工收到薪資後確認：`POST /v1/task/123/settlement/confirm`
+3. 系統記錄確認時間，完成結算流程
+
+### Notes
+- 此 API 需要認證，必須攜帶有效的 Bearer Token
+- 確認後的結算記錄可用於薪資爭議的證明
+- `settlement_confirmed_at` 時間戳可用於追蹤支付完成時間
+- 建議在確認前提示用戶：確認後無法撤銷
+
+---
+
+## 批量確認結算 (Batch Confirm Settlement)
+
+### Endpoint
+```
+POST /settlement/batchConfirm
+```
+
+### Description
+員工批量確認多個任務的結算狀態。此 API 允許一次確認多個任務的結算，適合員工同時收到多筆薪資時使用。系統會自動跳過不符合條件的任務（如未結算、已確認、非本人任務等），只處理符合條件的任務。
+
+### Authentication
+需要使用者認證（Bearer Token）
+
+### Headers
+```
+Authorization: Bearer {token}
+Content-Type: application/json
+Accept: application/json
+```
+
+### Request Body Parameters
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| task_ids | array | 是 | 任務ID陣列，包含要確認結算的任務ID列表 |
+| task_ids.* | integer | 是 | 每個任務ID必須存在於資料庫中 |
+
+### Request Example
+```bash
+POST /v1/task/settlement/batchConfirm
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...
+Content-Type: application/json
+
+{
+    "task_ids": [123, 124, 125, 126, 127]
+}
+```
+
+### Success Response (200 OK)
+```json
+{
+    "msg": "success",
+    "res": null
+}
+```
+
+**說明**：成功回應表示請求已處理完成。系統會自動處理所有符合條件的任務，並跳過不符合條件的任務。
+
+### Error Responses
+
+#### 422 Unprocessable Entity - 驗證錯誤
+```json
+{
+    "msg": "validation error",
+    "res": {
+        "task_ids": [
+            "The task ids field is required."
+        ]
+    }
+}
+```
+
+**常見驗證錯誤**：
+- `task_ids` 欄位必填
+- `task_ids` 必須是陣列格式
+- 陣列中的每個值必須是整數
+- 陣列中的每個任務ID必須存在於資料庫中
+
+#### 驗證錯誤範例
+```json
+{
+    "msg": "validation error",
+    "res": {
+        "task_ids.0": [
+            "The selected task ids.0 is invalid."
+        ],
+        "task_ids.2": [
+            "The selected task ids.2 is invalid."
+        ]
+    }
+}
+```
+
+### Processing Logic
+
+#### 自動跳過的情況
+系統會自動跳過以下情況的任務，不會返回錯誤：
+
+1. **任務不存在**：任務ID在資料庫中不存在
+2. **非授權用戶**：任務的 `user_id` 不等於當前登入用戶
+3. **未結算任務**：任務的 `fee` 狀態不等於 1
+4. **已確認任務**：任務的 `settlement_confirmed` 已經等於 1
+
+#### 處理流程
+```
+對於 task_ids 中的每個任務ID：
+  1. 查詢任務
+  2. 檢查任務是否存在 → 不存在則跳過
+  3. 檢查是否為任務執行者 → 非本人則跳過
+  4. 檢查是否已結算 → 未結算則跳過
+  5. 檢查是否已確認 → 已確認則跳過
+  6. 更新 settlement_confirmed = 1
+  7. 記錄 settlement_confirmed_at = 當前時間
+  8. 儲存任務
+```
+
+### Request Body Validation
+
+#### 有效的請求範例
+```json
+{
+    "task_ids": [1, 2, 3, 4, 5]
+}
+```
