@@ -22,7 +22,7 @@
 - `user_id` - 發送者 ID
 - `chat_room_id` - 聊天室 ID
 - `event_id` - 事件 ID
-- `event_type` - 事件類型
+- `event_type` - 事件類型（詳見下方 event_type 對照表）
 - `message` - 訊息內容（最多 1000 字元）
 - `file_path` - 檔案路徑（如有附件）
 - `file_type` - 檔案類型（1=圖片，2=文件）
@@ -32,6 +32,36 @@
 - `recalled_at` - 撤回時間
 - `created_at` - 建立時間
 - `updated_at` - 更新時間
+
+**event_type 事件類型對照表：**
+
+| event_type | 說明 | 備註 |
+|-----------|------|------|
+| 0 | 一般對話 | 一般文字聊天訊息，可被撤回 |
+| 1 | 任務<接受/完成/邀約> | 任務相關通知 |
+| 2 | 職缺<應徵/招聘> | 求職者應徵或雇主招聘 |
+| 3 | 發送<職缺/任務> | 發送職缺或任務相關訊息 |
+| 4 | 面試<邀約> | 面試邀約通知 |
+| 5 | 任務<收取費用> | 任務費用收取通知 |
+| 6 | 任務<上班打卡> | 上班打卡通知 (TaskPunchingPusherCheckCommand) |
+| 7 | 任務<下班打卡> | 下班打卡通知 (TaskPunchingPusherCheckCommand) |
+| 8 | 任務<15分鐘前上班打卡> | 提前15分鐘上班打卡提醒 (TaskPunchingPusherCheckCommand) |
+| 9 | 任務<結清費用> | 薪資結清完成通知 (TaskCheckoutPusherCheckCommand) |
+| 10 | 任務<補打卡> | 補打卡通知 |
+| 12 | 履歷發送訊息 | 聊聊中發送履歷（影響個資權限判斷） |
+| 13 | 合約通知 | 合約相關通知 (TaskRepoService.signContract) |
+| 14 | 合約簽署完成通知 | 雙方簽署完成 (TaskContractCheckCommand) |
+| 15 | 該職缺最後一次任務結束 | 該職缺所有任務已完成 (TaskPunchingPusherCheckCommand) |
+| 16 | 結算完成通知
+| 17 | 結算確認完成通知
+| 100 | 系統文字訊息 | 系統自動發送的文字訊息 |
+
+**重要說明：**
+- 只有 `event_type = 0` 的訊息可以被撤回
+- `event_type = 12` 的履歷發送記錄會影響個資顯示權限（見 UserRepository.hasFullAccessPermission）
+  - 有履歷互動且合作中：可查看完整個資
+  - 有履歷互動但合作結束：恢復遮罩
+  - 有履歷互動但無合作：開放一個月查看權限
 
 **關聯：**
 - `room()` - 多對一關聯到 ChatRoom
@@ -164,7 +194,7 @@
 |------|------|------|------|
 | event_id | integer | 是 | 事件 ID |
 | event_type | integer | 是 | 事件類型 |
-| message | string | 是 | 訊息內容（最多 1000 字元） |
+| message | string | 否 | 訊息內容（最多 1000 字元） |
 | my_type | string | 是 | 發送者類型（`user` 或 `company`） |
 
 **回應格式：**
