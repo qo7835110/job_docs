@@ -183,7 +183,82 @@
 
 ---
 
-### 2. 獲取評論（開放端點）
+### 2. 被評論列表（commentedList）
+
+**端點：** `GET /v1/commentedList`
+
+**說明：** 取得指定使用者「被評論」的列表（合併 `jobReceivedComments` 與 `taskReceivedComments`）。
+
+**認證：** 需要（`auth:sanctum`）
+
+**請求參數：**
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| user_id | integer | 否 | 指定使用者 ID；不提供時由後端判斷 |
+
+**驗證規則：**
+- `user_id`：必須存在於 users 資料表
+
+**回應格式：**
+```json
+{
+  "msg": "success",
+  "res": {
+    "data": [
+      {
+        "id": 1,
+        "user_id": 2,
+        "job_id": 10,
+        "task_id": null,
+        "type": 0,
+        "score": 17.5,
+        "content": "雇主準時支付薪資，工作環境安全。",
+        "img_paths": {
+          "data": [
+            "images/comment1.jpg",
+            "images/comment2.jpg"
+          ]
+        },
+        "items": [
+          {
+            "id": 5,
+            "comment_id": 1,
+            "item_name": "報酬準時",
+            "score": 5,
+            "created_at": "2026-01-22 10:30:00",
+            "updated_at": "2026-01-22 10:30:00"
+          }
+        ],
+        "created_at": "2026-01-22 10:30:00",
+        "updated_at": "2026-01-22 10:30:00"
+      }
+    ]
+  }
+}
+```
+
+**錯誤回應：**
+```json
+{
+  "msg": "validation error",
+  "res": {
+    "user_id": ["The selected user id is invalid."]
+  }
+}
+```
+- HTTP Status: 422 Unprocessable Entity
+
+```json
+{
+  "msg": "User not found",
+  "res": null
+}
+```
+- HTTP Status: 404 Not Found
+
+---
+
+### 3. 獲取評論（開放端點）
 
 **端點：** `GET /v1/open/comments/{user_id}`
 
@@ -260,7 +335,7 @@
 
 ---
 
-### 3. 建立評論
+### 4. 建立評論
 
 **端點：** `POST /v1/comment/create`
 
