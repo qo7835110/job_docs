@@ -53,7 +53,7 @@ Accept: application/json
 | marital_status                 | integer | 婚姻狀態 (0-4)                                    |
 | phone.phone_1                  | string  | 主要電話                                          |
 | contact_time                   | string  | 方便聯絡時間                                      |
-| special_id                     | integer | 特殊身分代碼                                      |
+| special_identity_id            | integer | 特殊身分 ID（關聯 `special_identities` 表）       |
 | education.school               | string  | 學校名稱                                          |
 | education.status               | integer | 就學狀態                                          |
 | education.department           | string  | 科系                                              |
@@ -216,7 +216,7 @@ Accept: application/json
 | marital_status                 | integer | 婚姻狀態 (0-4)                                    |
 | phone.phone_1                  | string  | 主要電話                                          |
 | contact_time                   | string  | 方便聯絡時間                                      |
-| special_id                     | integer | 特殊身分代碼                                      |
+| special_identity_id            | integer | 特殊身分 ID（關聯 `special_identities` 表）       |
 | education.school               | string  | 學校名稱                                          |
 | education.status               | integer | 就學狀態                                          |
 | education.department           | string  | 科系                                              |
