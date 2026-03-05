@@ -44,7 +44,16 @@ Accept: application/json
         "phone": {
             "phone_1": "0908888888"
         },
-        "special_id": 0,
+        "special_identity_id": 1,
+        "special_identity": {
+            "id": 1,
+            "name": "一般",
+            "description": "無特殊身分",
+            "status": true,
+            "sort_order": 1,
+            "created_at": "2026-03-05 05:15:27",
+            "updated_at": "2026-03-05 05:15:27"
+        },
         "email": "ggg2201@gmail.com",
         "contact_time": [
             "09:00 - 18:00"
@@ -113,7 +122,13 @@ curl -X GET "https://yourdomain.com/v1/open/user/idNumber?id_number=A123456789" 
 - `marital_status`: 婚姻狀態代碼（0: 未婚, 1: 已婚）
 - `phone`: 電話物件
   - `phone_1`: 主要電話號碼
-- `special_id`: 特殊身份代碼（0: 無, 其他數字代表不同身份）
+- `special_identity_id`: 特殊身分 ID（關聯 `special_identities` 表，可為 null）
+- `special_identity`: 特殊身分物件（自動預載入），包含以下欄位：
+  - `id`: 特殊身分 ID
+  - `name`: 名稱（如：一般、外籍人士、原住民、身心障礙等）
+  - `description`: 描述
+  - `status`: 啟用狀態
+  - `sort_order`: 排序
 - `email`: 電子郵件
 - `contact_time`: 聯絡時間陣列（字串陣列，如 `["09:00 - 18:00"]`）
 - `education`: 學歷物件
