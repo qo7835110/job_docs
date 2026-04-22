@@ -138,10 +138,12 @@ Authorization: Bearer {token}
 | 參數 | 必填 | 預設 | 說明 |
 |---|---|---|---|
 | `status` | — | `all` | 有效期篩選：`active`（有效）/ `expired`（已過期）/ `all` |
+| `owner_id` | — | 登入者 ID | 指定要查詢的雇主；預設為目前登入者 |
 | `job_id` | — | — | 篩選指定職缺的合約 |
 | `employee_id` | — | — | 篩選指定員工的合約 |
 | `start_date_from` | — | — | 合約 `start_date >=` 此日期（格式 `Y-m-d`） |
 | `start_date_to` | — | — | 合約 `start_date <=` 此日期（格式 `Y-m-d`） |
+| `per_page` | — | `15` | 每頁筆數；`0` 表示不分頁回傳全部 |
 
 > - `active`：`start_date <= 今日 AND (end_date IS NULL OR end_date >= 今日)`
 > - `expired`：`end_date IS NOT NULL AND end_date < 今日`
@@ -171,9 +173,17 @@ Authorization: Bearer {token}
       "employee": { "id": 42, "name": "王小明" },
       "job": { "id": 10, "title": "全端工程師" }
     }
-  ]
+  ],
+  "pagination": {
+    "current_page": 1,
+    "last_page": 3,
+    "per_page": 15,
+    "total": 42
+  }
 }
 ```
+
+> `pagination` 欄位僅在 `per_page > 0`（即有啟用分頁）時出現。
 
 ---
 
@@ -186,10 +196,12 @@ Authorization: Bearer {token}
 | 參數 | 必填 | 預設 | 說明 |
 |---|---|---|---|
 | `status` | — | `all` | 有效期篩選：`active` / `expired` / `all`（同上） |
+| `employee_id` | — | 登入者 ID | 指定要查詢的員工；預設為目前登入者 |
 | `job_id` | — | — | 篩選指定職缺的合約 |
 | `owner_id` | — | — | 篩選指定雇主的合約 |
 | `start_date_from` | — | — | 合約 `start_date >=` 此日期（格式 `Y-m-d`） |
 | `start_date_to` | — | — | 合約 `start_date <=` 此日期（格式 `Y-m-d`） |
+| `per_page` | — | `15` | 每頁筆數；`0` 表示不分頁回傳全部 |
 
 #### 回應範例（200）
 
@@ -216,9 +228,17 @@ Authorization: Bearer {token}
       "owner": { "id": 5, "name": "陳老闆" },
       "job": { "id": 10, "title": "全端工程師" }
     }
-  ]
+  ],
+  "pagination": {
+    "current_page": 1,
+    "last_page": 3,
+    "per_page": 15,
+    "total": 42
+  }
 }
 ```
+
+> `pagination` 欄位僅在 `per_page > 0`（即有啟用分頁）時出現。
 
 ---
 
