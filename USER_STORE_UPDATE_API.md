@@ -48,9 +48,11 @@ Accept: application/json
 | 參數                  | 類型    | 說明                          |
 | --------------------- | ------- | ----------------------------- |
 | email                 | string  | 電子信箱 (需唯一)             |
+| phone                 | string  | 主要手機號碼 (需唯一，格式 09XXXXXXXX) |
 | password              | string  | 密碼                          |
 | password_confirmation | string  | 確認密碼 (需與 password 相同) |
 | is_corporate          | boolean | 是否為企業帳號 (true/false)   |
+| otp                   | string  | 手機驗證碼（6 位數字，需先呼叫 `POST /otp/send` 以 `scene=register` 取得） |
 
 #### 選填欄位 (一般使用者 user_info)
 
@@ -65,7 +67,7 @@ Accept: application/json
 | birthday                       | string  | 生日                                               |
 | seniority                      | integer | 年資                                               |
 | marital_status                 | integer | 婚姻狀態 (0-4)                                     |
-| phone.phone_1                  | string  | 主要電話                                           |
+| other_phone.phone_1            | string  | 其他電話（寫入 `user_infos.other_phone`）           |
 | contact_time                   | string  | 方便聯絡時間                                       |
 | special_identity_id            | integer | 特殊身分 ID（關聯 `special_identities` 表）        |
 | education.school               | string  | 學校名稱                                           |
@@ -96,7 +98,7 @@ Accept: application/json
 | industry      | string  | 產業代碼     |
 | members       | integer | 員工人數     |
 | contact       | string  | 聯絡人       |
-| phone.phone_1 | string  | 主要電話     |
+| other_phone.phone_1 | string  | 電話（寫入 `companies.other_phone`） |
 | fax           | string  | 傳真         |
 | email         | string  | 公司信箱     |
 | address       | string  | 地址         |
@@ -134,14 +136,16 @@ Accept: application/json
 ```json
 {
     "email": "user@example.com",
+    "phone": "0912345678",
     "password": "password123",
     "password_confirmation": "password123",
+    "otp": "123456",
     "is_corporate": false,
     "user_info": {
         "name": "王小明",
         "id_number": "A123456789",
         "sex": 1,
-        "phone": {
+        "other_phone": {
             "phone_1": "0912345678"
         },
         "skills": ["PHP", "Laravel"],
@@ -164,8 +168,10 @@ Accept: application/json
 ```json
 {
     "email": "corp@example.com",
+    "phone": "0912345678",
     "password": "password123",
     "password_confirmation": "password123",
+    "otp": "123456",
     "is_corporate": true,
     "company_info": {
         "name": "範例股份有限公司",
@@ -198,7 +204,7 @@ curl -X POST http://localhost:8000/user/create \
   -F "company_info[owner_name]=王大明" \
   -F "company_info[industry]=123456" \
   -F "company_info[members]=100" \
-  -F "company_info[phone][phone_1]=0223456789" \
+  -F "company_info[other_phone][phone_1]=0223456789" \
   -F "company_info[email]=corp@example.com" \
   -F "company_info[address]=台北市信義區松高路1號" \
   -F "company_info[county]=台北市" \
@@ -227,7 +233,7 @@ formData.append('company_info[tax_id]', '12345678');
 formData.append('company_info[owner_name]', '王大明');
 formData.append('company_info[industry]', '123456');
 formData.append('company_info[members]', '100');
-formData.append('company_info[phone][phone_1]', '0223456789');
+formData.append('company_info[other_phone][phone_1]', '0223456789');
 formData.append('company_info[email]', 'corp@example.com');
 formData.append('company_info[address]', '台北市信義區松高路1號');
 
@@ -314,6 +320,15 @@ fetch('http://localhost:8000/user/create', {
 }
 ```
 
+#### OTP 驗證失敗 (422)
+
+```json
+{
+    "msg": "otp 驗證失敗，請重新發送驗證碼",
+    "res": null
+}
+```
+
 ---
 
 ## 2. 更新使用者 (update)
@@ -338,10 +353,13 @@ Accept: application/json
 
 ### Request Body
 
-> 皆為選填欄位。若未提供 county 或 district，系統會依 address 嘗試解析。
+> 皆為選填欄位。
+> 若提供 `address` 且未提供 `county` 或 `district`，系統會依 `address` 嘗試解析。
+> `user_infos.phone` 支援兩種寫法：`other_phone.phone_1`（新）與 `phone.phone_1`（舊版相容）。
 
 | 參數                           | 類型    | 說明                                              |
 | ------------------------------ | ------- | ------------------------------------------------- |
+| phone                          | string  | 使用者主手機（寫入 `users.phone`，需唯一，格式 09XXXXXXXX） |
 | id_number                      | string  | 身分證字號 (唯一，格式 /^[A-Z]{1}[1-2]{1}\d{8}$/) |
 | name                           | string  | 姓名                                              |
 | en_name                        | string  | 英文名 (可為 null)                                |
@@ -349,7 +367,8 @@ Accept: application/json
 | birthday                       | string  | 生日                                              |
 | seniority                      | integer | 年資                                              |
 | marital_status                 | integer | 婚姻狀態 (0-4)                                    |
-| phone.phone_1                  | string  | 主要電話                                          |
+| other_phone.phone_1            | string  | 其他電話（寫入 `user_infos.phone`）               |
+| phone.phone_1                  | string  | 舊版相容寫法（同樣寫入 `user_infos.phone`）       |
 | contact_time                   | string  | 方便聯絡時間                                      |
 | special_identity_id            | integer | 特殊身分 ID（關聯 `special_identities` 表）       |
 | education.school               | string  | 學校名稱                                          |
@@ -372,7 +391,8 @@ Accept: application/json
 ```json
 {
     "name": "王小明",
-    "phone": {
+    "phone": "0912345678",
+    "other_phone": {
         "phone_1": "0912345678"
     },
     "skills": ["PHP", "Laravel"],
@@ -426,3 +446,275 @@ Accept: application/json
 - **1**: 已婚
 - **2**: 離婚
 - **3**: 喪偶
+
+---
+
+## 3. 發送手機 OTP (sendOtp)
+
+### Endpoint
+
+```
+POST /otp/send
+```
+
+### 說明
+
+發送手機 OTP 驗證碼（共用入口，依 `scene` 區分場景）。OTP 有效期為 5 分鐘，同一手機號碼 60 秒內禁止重複發送。
+
+### Headers
+
+```
+Content-Type: application/json
+Accept: application/json
+```
+
+### Request Body
+
+| 參數  | 類型   | 必填 | 說明                                               |
+| ----- | ------ | ---- | -------------------------------------------------- |
+| phone | string | ✅   | 手機號碼（格式 09XXXXXXXX）                         |
+| scene | string | ✅   | 場景：`register`（註冊）、`login`（登入）、`forgot`（忘記密碼） |
+
+### Request 範例
+
+```json
+{
+    "phone": "0912345678",
+    "scene": "register"
+}
+```
+
+### Success Response (200)
+
+```json
+{
+    "msg": "驗證碼已發送",
+    "res": null
+}
+```
+
+### Error Responses
+
+#### 發送過於頻繁 (429)
+
+```json
+{
+    "msg": "請勿在 60 秒內重複發送驗證碼",
+    "res": null
+}
+```
+
+#### 手機號碼未綁定帳號（scene=login 或 forgot）(404)
+
+```json
+{
+    "msg": "此手機號碼尚未綁定任何帳號",
+    "res": null
+}
+```
+
+#### 簡訊發送失敗 (503)
+
+```json
+{
+    "msg": "簡訊發送失敗，請稍後再試",
+    "res": null
+}
+```
+
+---
+
+## 4. 手機 OTP 快速登入 (loginByPhone)
+
+### Endpoint
+
+```
+POST /login/phone
+```
+
+### 說明
+
+使用手機號碼與 OTP 快速登入，無需密碼。請先呼叫 `POST /otp/send`（`scene=login`）取得驗證碼。
+
+### Headers
+
+```
+Content-Type: application/json
+Accept: application/json
+```
+
+### Request Body
+
+| 參數  | 類型   | 必填 | 說明                        |
+| ----- | ------ | ---- | --------------------------- |
+| phone | string | ✅   | 手機號碼（格式 09XXXXXXXX） |
+| otp   | string | ✅   | 6 位數驗證碼                |
+
+### Request 範例
+
+```json
+{
+    "phone": "0912345678",
+    "otp": "123456"
+}
+```
+
+### Success Response (200)
+
+```json
+{
+    "msg": "success",
+    "res": {
+        "token": "1|xxxxxxxxxxxxxxxx",
+        "data": { }
+    }
+}
+```
+
+### Error Responses
+
+#### OTP 驗證失敗或已過期 (422)
+
+```json
+{
+    "msg": "otp 驗證失敗或已過期",
+    "res": null
+}
+```
+
+#### 使用者不存在 (404)
+
+```json
+{
+    "msg": "找不到對應的使用者",
+    "res": null
+}
+```
+
+---
+
+## 5. 忘記密碼 — 驗證 OTP (verifyForgotPasswordOtp)
+
+### Endpoint
+
+```
+POST /forgot-password/verify
+```
+
+### 說明
+
+忘記密碼流程第一步：驗證 OTP，成功後回傳一次性 `reset_token`（有效期 10 分鐘），供下一步重設密碼使用。請先呼叫 `POST /otp/send`（`scene=forgot`）取得驗證碼。
+
+### Headers
+
+```
+Content-Type: application/json
+Accept: application/json
+```
+
+### Request Body
+
+| 參數  | 類型   | 必填 | 說明                        |
+| ----- | ------ | ---- | --------------------------- |
+| phone | string | ✅   | 手機號碼（格式 09XXXXXXXX） |
+| otp   | string | ✅   | 6 位數驗證碼                |
+
+### Request 範例
+
+```json
+{
+    "phone": "0912345678",
+    "otp": "123456"
+}
+```
+
+### Success Response (200)
+
+```json
+{
+    "msg": "驗證成功，請在 10 分鐘內完成密碼重設",
+    "res": {
+        "reset_token": "xxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+}
+```
+
+### Error Responses
+
+#### OTP 驗證失敗或已過期 (422)
+
+```json
+{
+    "msg": "otp 驗證失敗或已過期",
+    "res": null
+}
+```
+
+---
+
+## 6. 忘記密碼 — 重設密碼 (resetPassword)
+
+### Endpoint
+
+```
+POST /forgot-password/reset
+```
+
+### 說明
+
+忘記密碼流程第二步：使用 `verifyForgotPasswordOtp` 回傳的 `reset_token` 重設密碼。`reset_token` 為一次性，使用後即失效。重設成功後，所有 Sanctum Token 將一併撤銷，需重新登入。
+
+### Headers
+
+```
+Content-Type: application/json
+Accept: application/json
+```
+
+### Request Body
+
+| 參數                  | 類型   | 必填 | 說明                          |
+| --------------------- | ------ | ---- | ----------------------------- |
+| reset_token           | string | ✅   | 由 `forgot-password/verify` 取得的一次性 Token |
+| password              | string | ✅   | 新密碼（至少 8 個字元）       |
+| password_confirmation | string | ✅   | 確認新密碼                    |
+
+### Request 範例
+
+```json
+{
+    "reset_token": "xxxxxxxxxxxxxxxxxxxxxxxx",
+    "password": "newpassword123",
+    "password_confirmation": "newpassword123"
+}
+```
+
+### Success Response (200)
+
+```json
+{
+    "msg": "密碼重設成功，請重新登入",
+    "res": null
+}
+```
+
+### Error Responses
+
+#### reset_token 無效或已過期 (422)
+
+```json
+{
+    "msg": "重設 Token 無效或已過期，請重新申請",
+    "res": null
+}
+```
+
+#### 使用者不存在 (404)
+
+```json
+{
+    "msg": "找不到對應的使用者",
+    "res": null
+}
+```
+
