@@ -70,10 +70,13 @@ Authorization: Bearer {admin_token}
 
 | 值 | 說明 |
 |---|---|
-| `unpaid` | 使用者已送出申請，等待管理員確認收款 |
-| `active` | 訂閱已開通，且在有效期限內 |
+| `unpaid` | 使用者已送出訂閱申請，等待使用者完成匯款並提交確認 |
+| `reviewing` | 使用者已提交付款確認，**等待管理員核驗匯款是否到帳** |
+| `active` | 管理員已確認收款，訂閱開通中且在有效期限內 |
 | `past_due` | 帳單逾期未繳 |
-| `canceled` | 已取消（無法使用），手動拒絕或到期後由排程更新 |
+| `canceled` | 已取消（無法使用），管理員拒絕或到期後由排程更新 |
+
+> **標準狀態流程**：`unpaid` → *(使用者提交付款確認)* → `reviewing` → *(管理員核驗)* → `active` 或 `canceled`
 
 ### Payment 物件
 
@@ -155,7 +158,7 @@ GET /v1/open/plans
 
 ## User — 訂閱操作
 
-> 以下兩支 API 皆需要使用者 Token 認證。
+> 以下 API 皆需要使用者 Token 認證。
 
 ```
 Authorization: Bearer {user_token}
@@ -163,17 +166,64 @@ Authorization: Bearer {user_token}
 
 ---
 
-### 1. 查詢我的訂閱狀態
+### 1. 取得我的所有訂閱紀錄
+
+```
+GET /v1/subscriptions
+```
+
+> 回傳分頁列表，每筆含 `plan` 關聯，依建立時間倒序排列。適合用於訂閱歷史紀錄頁面。
+
+#### Query Parameters
+
+| 參數 | 類型 | 必填 | 說明 |
+|---|---|---|---|
+| `per_page` | integer | 否 | 每頁筆數，預設 `10` |
+
+#### 成功回應 (200)
+
+```json
+{
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 5,
+        "user_id": 12,
+        "plan_id": 2,
+        "status": "active",
+        "starts_at": "2026-04-14T15:00:00.000000Z",
+        "ends_at": "2026-05-14T15:00:00.000000Z",
+        "canceled_at": null,
+        "comment": "匯款帳號末五碼 12345",
+        "created_at": "2026-04-14T15:00:00.000000Z",
+        "plan": {
+          "id": 2,
+          "name": "進階月訂閱",
+          "price": "299.00",
+          "interval_type": "month"
+        }
+      }
+    ],
+    "per_page": 10,
+    "total": 1
+  }
+}
+```
+
+---
+
+### 2. 查詢我目前的訂閱狀態
 
 ```
 GET /v1/subscriptions/me
 ```
 
-> 回傳最新一筆訂閱（含 `plan` 關聯）與 `has_active_subscription` 方便前端直接判斷是否有有效訂閱。
+> 回傳最新有效訂閱（含 `plan` 關聯）與 `temp_access` 臨時開通資格資訊，前端可據此決定是否顯示臨時開通按鈕。
 
 #### 成功回應 (200)
 
-**有效訂閱存在時：**
+**有效訂閱存在時（不顯示臨時開通按鈕）：**
 
 ```json
 {
@@ -181,42 +231,133 @@ GET /v1/subscriptions/me
     "has_active_subscription": true,
     "subscription": {
       "id": 5,
-      "user_id": 12,
-      "plan_id": 2,
       "status": "active",
-      "starts_at": "2026-04-14T15:00:00.000000Z",
       "ends_at": "2026-05-14T15:00:00.000000Z",
-      "canceled_at": null,
-      "comment": null,
-      "metadata": null,
-      "created_at": "2026-04-14T15:00:00.000000Z",
-      "plan": {
-        "id": 2,
-        "name": "進階月訂閱",
-        "price": "299.00",
-        "interval_type": "month"
-      }
+      "plan": { "id": 2, "name": "進階月訂閱", "price": "299.00" }
+    },
+    "temp_access": {
+      "can_request": false,
+      "remaining": 2,
+      "limit": 2,
+      "days": 3,
+      "reference_starts_at": "2026-04-14T15:00:00.000000Z"
     }
   }
 }
 ```
 
-**尚未訂閱時：**
+**訂閱已過期、可申請臨時開通時：**
 
 ```json
 {
   "data": {
     "has_active_subscription": false,
-    "subscription": null
+    "subscription": null,
+    "temp_access": {
+      "can_request": true,
+      "remaining": 2,
+      "limit": 2,
+      "days": 3,
+      "reference_starts_at": "2026-04-14T15:00:00.000000Z"
+    }
   }
 }
 ```
 
-> **`has_active_subscription` 判斷邏輯**：`status === 'active'` 且 `ends_at` 為 null 或 `ends_at` > 現在時間。
+**臨時開通次數已用完時：**
+
+```json
+{
+  "data": {
+    "has_active_subscription": false,
+    "subscription": null,
+    "temp_access": {
+      "can_request": false,
+      "remaining": 0,
+      "limit": 2,
+      "days": 3,
+      "reference_starts_at": "2026-04-14T15:00:00.000000Z"
+    }
+  }
+}
+```
+
+**從未付費、無法使用臨時開通時：**
+
+```json
+{
+  "data": {
+    "has_active_subscription": false,
+    "subscription": null,
+    "temp_access": null
+  }
+}
+```
+
+> **`temp_access` 欄位說明**：
+> - `can_request`：`true` 代表目前可以申請臨時開通
+> - `remaining`：本付款週期剩餘次數
+> - `reference_starts_at`：額度所屬的付款週期開始時間
 
 ---
 
-### 2. 送出訂閱申請
+### 3. 申請臨時開通（3 天）
+
+```
+POST /v1/subscriptions/temp-access
+```
+
+> 讓使用者在訂閱過期後，自行啟用 3 天的臨時存取權限，無需管理員介入。
+>
+> **額度規則**：每個付款週期提供 **2 次**臨時開通機會，付款成功後自動重置。
+
+#### 業務規則
+
+- 目前**有效訂閱存在**時，不可申請（已有訂閱無需臨時開通）。
+- 從未有過成功付款紀錄的用戶，**不可**使用此功能。
+- 本付款週期內已使用 **2 次**，回傳 400。
+
+#### 無需 Request Body
+
+#### 成功回應 (201)
+
+```json
+{
+  "message": "臨時開通成功！有效期限至 2026-05-15 12:00，本週期剩餘 1 次臨時開通次數。",
+  "data": {
+    "id": 10,
+    "user_id": 12,
+    "plan_id": 1,
+    "status": "active",
+    "starts_at": "2026-05-12T12:00:00.000000Z",
+    "ends_at": "2026-05-15T12:00:00.000000Z",
+    "metadata": "{\"is_temp_access\":true,\"reference_subscription_id\":5}"
+  },
+  "remaining_temp_access": 1
+}
+```
+
+#### 錯誤回應 — 已有有效訂閱 (400)
+
+```json
+{ "message": "您目前已有有效的訂閱，無須申請臨時開通。" }
+```
+
+#### 錯誤回應 — 無付費紀錄 (400)
+
+```json
+{ "message": "您目前沒有訂閱記錄，無法使用臨時開通功能。" }
+```
+
+#### 錯誤回應 — 額度已用完 (400)
+
+```json
+{ "message": "本付款週期的臨時開通次數（2 次）已用完，請重新訂閱以獲得新的使用次數。" }
+```
+
+---
+
+### 4. 送出訂閱申請
 
 ```
 POST /v1/subscriptions/subscribe
@@ -276,6 +417,76 @@ POST /v1/subscriptions/subscribe
     "plan_id": ["The selected plan id is invalid."]
   }
 }
+```
+
+---
+
+### 4. 提交付款確認（含匯款備註）
+
+```
+POST /v1/subscriptions/{id}/submit-payment
+```
+
+> 使用者完成匯款後，填寫匯款資訊（如帳號末五碼、轉帳時間）並同步提交付款確認，通知管理員開始核驗。
+>
+> **已整合備註與狀態推進**：一支 API 同時完成「填寫資訊」與「提交確認」兩個動作。
+
+#### 業務規則
+
+| 目前狀態 | 行為 |
+|---|---|
+| `unpaid` | 寫入 `comment` + 狀態推進至 `reviewing` |
+| `reviewing` | 僅更新 `comment`（補充或修正資訊），狀態維持 `reviewing` |
+| `active` / 其他 | 回傳 400 錯誤 |
+
+- 只能操作**屬於自己**的訂閱，否則回傳 404。
+
+#### Request Body
+
+| 參數 | 類型 | 必填 | 說明 |
+|---|---|---|---|
+| `comment` | string | 是 | 匯款資訊，最多 1000 字元（例如：帳號末五碼、轉帳日期等）|
+
+#### 請求範例
+
+```json
+{
+  "comment": "已匯款，帳號末五碼 12345，2026-05-12 轉帳"
+}
+```
+
+#### 成功回應 — 首次提交 `unpaid → reviewing` (200)
+
+```json
+{
+  "message": "付款資訊已提交，請等待管理員審查（通常於 1 個工作天內處理）。",
+  "data": {
+    "id": 5,
+    "status": "reviewing",
+    "comment": "已匯款，帳號末五碼 12345，2026-05-12 轉帳",
+    "plan": { "id": 2, "name": "進階月訂閱", "price": "299.00" }
+  }
+}
+```
+
+#### 成功回應 — 補充資訊（已在 `reviewing` 狀態）(200)
+
+```json
+{
+  "message": "付款資訊已更新，管理員審查中。",
+  "data": {
+    "id": 5,
+    "status": "reviewing",
+    "comment": "已重新確認，帳號末五碼 12345，2026-05-13 再次轉帳",
+    "plan": { "id": 2, "name": "進階月訂閱", "price": "299.00" }
+  }
+}
+```
+
+#### 錯誤回應 — 已開通 (400)
+
+```json
+{ "message": "此訂閱已完成開通，無需重複提交。" }
 ```
 
 ---
@@ -605,17 +816,47 @@ POST /api/admin/subscriptions/{id}/approve
 }
 ```
 
-#### 錯誤回應 — 非待審核狀態 (400)
+#### 錯誤回應 — 狀態不符 (400)
 
 ```json
 {
-  "message": "該訂閱並非待審核狀態。"
+  "message": "該訂閱狀態無法執行開通（僅接受 unpaid 或 reviewing 狀態）。"
 }
 ```
 
 ---
 
-### 4. 拒絕 / 取消訂閱
+### 4. 標記為審查中 (`unpaid` → `reviewing`)
+
+```
+POST /api/admin/subscriptions/{id}/mark-reviewing
+```
+
+> 管理員可主動將訂閱標記為「審查中」，適用於管理員看到使用者的匯款備註後手動記錄。
+> 使用者自行提交付款確認時也會自動觸發此狀態轉換。
+
+#### 業務規則
+
+- 僅接受 `unpaid` 狀態
+
+#### 無需 Request Body
+
+#### 成功回應 (200)
+
+```json
+{
+  "message": "訂閱已標記為審查中",
+  "data": {
+    "id": 5,
+    "status": "reviewing",
+    "comment": "已匯款，帳號未五碼 12345"
+  }
+}
+```
+
+---
+
+### 5. 拒絕 / 取消訂閱
 
 ```
 POST /api/admin/subscriptions/{id}/reject
@@ -647,7 +888,7 @@ PUT /api/admin/subscriptions/{id}
 
 | 參數 | 類型 | 必填 | 說明 |
 |---|---|---|---|
-| `status` | string | 否 | `past_due` \| `canceled` \| `unpaid`（**不可設為 active**）|
+| `status` | string | 否 | `past_due` \| `canceled` \| `unpaid` \| `reviewing`（**不可設為 active**）|
 | `starts_at` | string (date) \| null | 否 | 訂閱開始日，可傳 `null` 清空 |
 | `ends_at` | string (date) \| null | 否 | 訂閱到期日，可傳 `null` 清空，需 >= `starts_at` |
 | `comment` | string \| null | 否 | 後台備註，最多 1000 字元，可傳 `null` 清空 |
