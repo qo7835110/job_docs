@@ -280,3 +280,137 @@ Content-Type: application/json
     "task_ids": [1, 2, 3, 4, 5]
 }
 ```
+
+---
+
+## 員工月份任務查詢 (My Task Info)
+
+### Endpoint
+```
+GET /task/my/info/{year}/{month}
+```
+
+### Description
+員工查詢本人在指定年月內的所有任務，結果按日期分組，每筆任務附加雇主名稱（`owner_name`）。
+
+### Authentication
+需要使用者認證（Bearer Token）
+
+### Headers
+```
+Authorization: Bearer {token}
+Accept: application/json
+```
+
+### Path Parameters
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| year | integer | 是 | 查詢年份（例如：2026） |
+| month | integer | 是 | 查詢月份（1–12） |
+
+### Request Example
+```
+GET /v1/task/my/info/2026/5
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...
+```
+
+### Success Response (200 OK)
+
+回應的 `res` 是以**日期字串**為 key 的物件，每個 key 對應該日期的任務陣列。
+
+```json
+{
+    "msg": "success",
+    "res": {
+        "2026-05-06": [
+            {
+                "id": 101,
+                "job_id": 10,
+                "user_id": 78,
+                "wage": 200,
+                "status": 3,
+                "fee": 0,
+                "pay_way": null,
+                "checkout_wage": null,
+                "start_at": "2026-05-06 09:00:00",
+                "end_at": "2026-05-06 18:00:00",
+                "punch_in": "2026-05-06 08:58:00",
+                "punch_out": null,
+                "memo": null,
+                "owner_name": "台灣科技股份有限公司",
+                "job": {
+                    "id": 10,
+                    "user_id": 5,
+                    "title": "後端工程師"
+                }
+            }
+        ],
+        "2026-05-07": [
+            {
+                "id": 102,
+                "job_id": 10,
+                "user_id": 78,
+                "wage": 200,
+                "status": 3,
+                "fee": 0,
+                "pay_way": null,
+                "checkout_wage": null,
+                "start_at": "2026-05-07 09:00:00",
+                "end_at": "2026-05-07 18:00:00",
+                "punch_in": null,
+                "punch_out": null,
+                "memo": null,
+                "owner_name": "台灣科技股份有限公司",
+                "job": {
+                    "id": 10,
+                    "user_id": 5,
+                    "title": "後端工程師"
+                }
+            }
+        ]
+    }
+}
+```
+
+若該月份無任何任務，`res` 為空物件：
+```json
+{
+    "msg": "success",
+    "res": {}
+}
+```
+
+### Response Fields Description
+
+#### 頂層 `res` 物件
+- key：日期字串（`YYYY-MM-DD`），對應任務的 `start_at` 日期部分
+- value：該日期的任務陣列
+
+#### Task 物件
+- `id`: 任務ID
+- `job_id`: 關聯的工作ID
+- `user_id`: 執行任務的用戶ID（員工）
+- `wage`: 時薪或日薪金額
+- `status`: 任務狀態（0: 待確認, 1: 確認中, 2: 待簽署, 3: 進行中）
+- `fee`: 結算狀態（0: 未結算, 1: 已結算）
+- `pay_way`: 支付方式（0: 現金, 1: 轉帳, null: 尚未結算）
+- `checkout_wage`: 結算總金額（含加班費），未結算時為 null
+- `start_at`: 任務開始時間
+- `end_at`: 任務結束時間
+- `punch_in`: 實際上班打卡時間（未打卡為 null）
+- `punch_out`: 實際下班打卡時間（未打卡為 null）
+- `memo`: 備註
+- `owner_name`: 雇主名稱（自然人取個人姓名，法人取公司名稱）
+- `job`: 關聯的工作資訊物件
+
+### Business Logic
+
+1. 以登入員工的 `user_id` 查詢所有屬於該員工的任務
+2. 篩選 `start_at >= {year}-{month}-01` 且 `end_at < {year}-{month+1}-01` 的任務
+3. 結果依 `start_at` 的日期部分分組（`YYYY-MM-DD`）
+4. 每筆任務透過 `owner` 關聯（Task → Job → User）取得雇主名稱，附加至 `owner_name`
+
+### Related Endpoints
+- `GET /v1/employees/tasks/info/{year}/{month}` — 雇主查詢所有員工的月份任務（[ManageController](../app/Http/Controllers/ManageController.php)）
+- `GET /v1/tasks` — 員工查詢自身任務列表
+- `GET /v1/task/{id}` — 查看單一任務詳情
