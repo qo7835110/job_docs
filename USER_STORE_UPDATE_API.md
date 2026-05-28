@@ -8,6 +8,79 @@
 
 ---
 
+## 0. 帳號密碼登入 (authenticate)
+
+### Endpoint
+
+```
+POST /user/login
+```
+
+### 說明
+
+使用帳號密碼登入。支援兩種帳號格式（二擇一）：
+
+- **Email 登入**：傳送 `email` + `password`
+- **識別碼登入**：傳送 `identifier`（身分證字號或統一編號）+ `password`
+
+### Headers
+
+```
+Content-Type: application/json
+Accept: application/json
+```
+
+### Request Body
+
+| 參數       | 類型   | 必填 | 說明 |
+| ---------- | ------ | ---- | ---- |
+| email      | string | 二擇一 | 電子信箱（與 identifier 擇一） |
+| identifier | string | 二擇一 | 身分證字號或統一編號（與 email 擇一） |
+| password   | string | ✅   | 密碼 |
+
+> 同時傳入 `email` 與 `identifier` 時，系統優先使用 `email` 登入。
+
+### Request 範例 (Email 登入)
+
+```json
+{
+    "email": "user@example.com",
+    "password": "password123"
+}
+```
+
+### Request 範例 (識別碼登入)
+
+```json
+{
+    "identifier": "A123456789",
+    "password": "password123"
+}
+```
+
+### Success Response (200)
+
+```json
+{
+    "msg": "success",
+    "res": {
+        "token": "1|xxxxxxxxxxxxxxxx",
+        "data": { }
+    }
+}
+```
+
+### Error Response (401)
+
+```json
+{
+    "msg": "login failed",
+    "res": null
+}
+```
+
+---
+
 ## 1. 建立使用者 (store)
 
 ### Endpoint
@@ -49,10 +122,15 @@ Accept: application/json
 | --------------------- | ------- | ----------------------------- |
 | email                 | string  | 電子信箱 (需唯一)             |
 | phone                 | string  | 主要手機號碼 (需唯一，格式 09XXXXXXXX) |
+| identifier            | string  | 政府核發識別碼（需唯一）。個人使用者填**身分證字號**（格式 `/^[A-Z][1-2]\d{8}$/`，例：`A123456789`）；企業使用者填**統一編號**（8 碼數字，例：`12345678`） |
 | password              | string  | 密碼                          |
 | password_confirmation | string  | 確認密碼 (需與 password 相同) |
 | is_corporate          | boolean | 是否為企業帳號 (true/false)   |
 | otp                   | string  | 手機驗證碼（6 位數字，需先呼叫 `POST /otp/send` 以 `scene=register` 取得） |
+
+> **注意：** `identifier` 在帳號建立後也可作為登入帳號使用，替代 Email 登入（詳見 [帳號密碼登入](#0-帳號密碼登入-authenticate)）。
+>
+> **自動同步：** 後端會自動將 `identifier` 的值寫入子表：個人帳號寫入 `user_infos.id_number`、企業帳號寫入 `companies.tax_id`。因此 **`user_info` 不需傳 `id_number`**，**`company_info` 不需傳 `tax_id`**。
 
 #### 選填欄位 (一般使用者 user_info)
 
@@ -60,7 +138,6 @@ Accept: application/json
 
 | 參數                           | 類型    | 說明                                               |
 | ------------------------------ | ------- | -------------------------------------------------- |
-| id_number                      | string  | 身分證字號 (唯一，格式 /^[A-Z]{1}[1-2]{1}\d{8}$/) |
 | name                           | string  | 姓名                                               |
 | en_name                        | string  | 英文名 (可為 null)                                 |
 | sex                            | integer | 性別代碼 (0-2)                                     |
@@ -92,7 +169,6 @@ Accept: application/json
 | 參數          | 類型    | 說明         |
 | ------------- | ------- | ------------ |
 | name          | string  | 公司名稱     |
-| tax_id        | string  | 統一編號     |
 | owner_name    | string  | 負責人       |
 | avatar        | string  | 公司頭像路徑 |
 | industry      | string  | 產業代碼     |
@@ -137,13 +213,13 @@ Accept: application/json
 {
     "email": "user@example.com",
     "phone": "0912345678",
+    "identifier": "A123456789",
     "password": "password123",
     "password_confirmation": "password123",
     "otp": "123456",
     "is_corporate": false,
     "user_info": {
         "name": "王小明",
-        "id_number": "A123456789",
         "sex": 1,
         "other_phone": {
             "phone_1": "0912345678"
@@ -169,13 +245,13 @@ Accept: application/json
 {
     "email": "corp@example.com",
     "phone": "0912345678",
+    "identifier": "12345678",
     "password": "password123",
     "password_confirmation": "password123",
     "otp": "123456",
     "is_corporate": true,
     "company_info": {
         "name": "範例股份有限公司",
-        "tax_id": "12345678",
         "owner_name": "王大明",
         "industry": "123456",
         "members": 100,
@@ -196,11 +272,13 @@ Accept: application/json
 ```bash
 curl -X POST http://localhost:8000/user/create \
   -F "user[email]=corp@example.com" \
+  -F "user[phone]=0912345678" \
+  -F "user[identifier]=12345678" \
   -F "user[password]=password123" \
   -F "user[password_confirmation]=password123" \
+  -F "user[otp]=123456" \
   -F "user[is_corporate]=1" \
   -F "company_info[name]=範例股份有限公司" \
-  -F "company_info[tax_id]=12345678" \
   -F "company_info[owner_name]=王大明" \
   -F "company_info[industry]=123456" \
   -F "company_info[members]=100" \
@@ -223,13 +301,15 @@ const formData = new FormData();
 
 // user 欄位
 formData.append('user[email]', 'corp@example.com');
+formData.append('user[phone]', '0912345678');
+formData.append('user[identifier]', '12345678');
 formData.append('user[password]', 'password123');
 formData.append('user[password_confirmation]', 'password123');
+formData.append('user[otp]', '123456');
 formData.append('user[is_corporate]', '1');
 
 // company_info 欄位
 formData.append('company_info[name]', '範例股份有限公司');
-formData.append('company_info[tax_id]', '12345678');
 formData.append('company_info[owner_name]', '王大明');
 formData.append('company_info[industry]', '123456');
 formData.append('company_info[members]', '100');
