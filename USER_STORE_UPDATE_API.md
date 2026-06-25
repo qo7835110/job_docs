@@ -798,3 +798,70 @@ Accept: application/json
 }
 ```
 
+---
+
+## 7. 取得登入者資料 (info)
+
+### Endpoint
+
+```
+GET /v1/user/info
+```
+
+### 說明
+
+取得目前登入者的個人資料。除基本使用者欄位外，額外附加當日勞健保自付額（每日分攤金額，從 SSO 系統查詢並快取 24 小時）。
+
+> 若 SSO 系統查詢失敗，`labor_one_day_pay` 與 `health_one_day_pay` 預設為 `0`，不影響主要資料回傳。
+
+### Headers
+
+```
+Authorization: Bearer {access_token}
+Accept: application/json
+```
+
+### Success Response (200)
+
+```json
+{
+    "msg": "success",
+    "res": {
+        "id": 42,
+        "email": "user@example.com",
+        "phone": "0912345678",
+        "identifier": "A123456789",
+        "is_corporate": 0,
+        "last_login": "2026-06-25 10:00:00",
+        "created_at": "2026-01-01 00:00:00",
+        "updated_at": "2026-06-25 10:00:00",
+        "user_info": {
+            "name": "王小明",
+            "sex": 1,
+            "birthday": "1990-01-01",
+            "address": "台北市大安區信義路四段1號",
+            "county": "台北市",
+            "district": "大安區"
+        },
+        "labor_one_day_pay": 33,
+        "health_one_day_pay": 15
+    }
+}
+```
+
+### 回應欄位說明
+
+| 欄位                | 類型    | 說明                                                      |
+| ------------------- | ------- | --------------------------------------------------------- |
+| labor_one_day_pay   | integer | 勞保每日自付額（月繳金額 ÷ 30，無條件捨去）；查無資料時為 `0` |
+| health_one_day_pay  | integer | 健保每日自付額（月繳金額 ÷ 30，無條件捨去）；查無資料時為 `0` |
+
+### Error Response (401)
+
+```json
+{
+    "msg": "Unauthenticated.",
+    "res": null
+}
+```
+
