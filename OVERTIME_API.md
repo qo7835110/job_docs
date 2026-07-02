@@ -270,7 +270,9 @@ curl -X POST "https://example.com/v1/overtime-requests" \
 
 修改待審申請（status=0）。
 
-> 僅申請人（employee_id）可修改，且狀態必須為 `pending`。
+> 僅**發起人**（`initiated_by`）可修改，且狀態必須為 `pending`。
+> 加班（type=0）只有員工能發起，效果上等同員工才能改；
+> 補班（type=1）雇主也可代員工發起，此時只有該雇主能改，員工不行（反之亦然）。
 
 #### 參數
 
@@ -299,7 +301,7 @@ curl -X POST "https://example.com/v1/overtime-requests" \
 | 狀態碼 | msg | 原因 |
 |---|---|---|
 | 404 | overtime request not found | 申請不存在 |
-| 403 | unauthorized | 非申請人 |
+| 403 | unauthorized | 非發起人 |
 | 400 | only pending requests can be updated | 非待審狀態 |
 | 400 | task not found for overtime request | 找不到綁定任務（type=0） |
 | 422 | 時段驗證錯誤 | 同 store 的加班驗證規則 |
